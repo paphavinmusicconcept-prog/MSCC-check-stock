@@ -1,0 +1,9 @@
+# ไฟล์นี้บอก Python ว่าต้องติดตั้ง library อะไรบ้าง
+
+# สำหรับ api.py (รันบนคอมร้าน)
+flask==3.0.3
+mysql-connector-python==8.4.0
+
+# สำหรับ bot.py (รันบน server ภายนอก)
+line-bot-sdk==3.11.0
+requests==2.32.3
