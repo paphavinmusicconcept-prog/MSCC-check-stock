@@ -12,6 +12,7 @@ from linebot.v3.messaging import (
 from linebot.v3.webhooks import MessageEvent, TextMessageContent
 from linebot.v3.exceptions import InvalidSignatureError
 import requests
+from stock_cleaning import normalize_product
 
 app = Flask(__name__)
 
@@ -62,10 +63,17 @@ def handle_message(event):
 
         if result.get("found"):
             d = result["data"]
+            product = normalize_product(
+                d.get("sku"),
+                d.get("name"),
+                d.get("qty", d.get("quantity")),
+                d.get("unit"),
+                d.get("warehouse"),
+            )
             reply = (
-                f"สินค้า: {d.get('name', '-')}\n"
-                f"SKU: {d.get('sku', '-')}\n"
-                f"คงเหลือ: {d.get('quantity', '-')} ชิ้น"
+                f"สินค้า: {product.get('name') or '-'}\n"
+                f"SKU: {product.get('sku') or '-'}\n"
+                f"คงเหลือ: {product.get('qty', 0)} {product.get('unit') or 'ตัว'}"
             )
         else:
             reply = f"ไม่พบสินค้า SKU: {sku}"

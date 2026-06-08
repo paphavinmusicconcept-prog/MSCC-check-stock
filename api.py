@@ -5,6 +5,7 @@
 
 from flask import Flask, request, jsonify
 import mysql.connector
+from stock_cleaning import normalize_product
 
 app = Flask(__name__)
 
@@ -22,6 +23,8 @@ TABLE   = "products"     # ชื่อตารางสินค้า (แก
 COL_SKU = "sku"          # คอลัมน์ SKU
 COL_NAME = "name"        # คอลัมน์ชื่อสินค้า
 COL_QTY  = "quantity"    # คอลัมน์จำนวนคงเหลือ
+COL_UNIT = None          # ถ้ามีคอลัมน์หน่วย ให้ใส่ชื่อคอลัมน์ เช่น "unit"
+COL_WAREHOUSE = None     # ถ้ามีคอลัมน์คลัง ให้ใส่ชื่อคอลัมน์ เช่น "warehouse"
 
 # ── Endpoint รับ request จากบอท ────────────────────────────
 @app.route("/stock", methods=["GET"])
@@ -35,7 +38,20 @@ def get_stock():
         conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor(dictionary=True)
 
-        sql = f"SELECT {COL_NAME}, {COL_SKU}, {COL_QTY} FROM {TABLE} WHERE {COL_SKU} = %s LIMIT 1"
+        select_columns = [
+            f"{COL_NAME} AS raw_name",
+            f"{COL_SKU} AS raw_sku",
+            f"{COL_QTY} AS raw_qty",
+        ]
+        if COL_UNIT:
+            select_columns.append(f"{COL_UNIT} AS raw_unit")
+        if COL_WAREHOUSE:
+            select_columns.append(f"{COL_WAREHOUSE} AS raw_warehouse")
+
+        sql = (
+            f"SELECT {', '.join(select_columns)} "
+            f"FROM {TABLE} WHERE {COL_SKU} = %s LIMIT 1"
+        )
         cursor.execute(sql, (sku,))
         row = cursor.fetchone()
 
@@ -43,7 +59,15 @@ def get_stock():
         conn.close()
 
         if row:
-            return jsonify({"found": True, "data": row})
+            product = normalize_product(
+                row.get("raw_sku"),
+                row.get("raw_name"),
+                row.get("raw_qty"),
+                row.get("raw_unit"),
+                row.get("raw_warehouse"),
+            )
+            product["quantity"] = product["qty"]  # backward compatible field
+            return jsonify({"found": True, "data": product})
         else:
             return jsonify({"found": False})
 
